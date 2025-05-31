@@ -1,7 +1,9 @@
 package com.example.mi_sm_api_3.screens
 
 
+import android.R
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,15 +48,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.mi_sm_api_3.models.Group
 import com.example.mi_sm_api_3.models.Match
 import com.example.mi_sm_api_3.models.Team
+import com.example.mi_sm_api_3.utils.CoiledImage
 import com.example.mi_sm_api_3.viewmodels.HomeViewModel
 
 
@@ -63,7 +69,7 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(navController: NavController) {
     val homeViewModel: HomeViewModel = viewModel()
     val matchState by homeViewModel.matchState
     val teamState by homeViewModel.teamState
@@ -131,7 +137,7 @@ fun HomeScreen() {
             matchState.loading -> LoadingState()
             matchState.error != null -> ErrorState(message = matchState.error!!)
             matchState.list.isEmpty() -> EmptyState()
-            else -> MatchGrid(matches = matchState.list)
+            else -> MatchGrid(matches = matchState.list, navController = navController)
         }
     }
 }
@@ -339,28 +345,29 @@ private fun FilterDropdown(
 }
 
 @Composable
-private fun MatchGrid(matches: List<Match>) {
+private fun MatchGrid(matches: List<Match>, navController: NavController) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(matches) { match ->
-            MatchCard(match)
+            MatchCard(match = match, navController = navController)
         }
     }
 }
 
 @Composable
-private fun MatchCard(match: Match) {
+private fun MatchCard(match: Match, navController: NavController) {
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { navController.navigate("matchInfo/${match.matchID}") },
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
+        ),
     ) {
         Row(
             modifier = Modifier
@@ -369,30 +376,20 @@ private fun MatchCard(match: Match) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-
             TeamInfoCompact(
                 team = match.team1,
                 modifier = Modifier.weight(1f),
                 alignment = Alignment.Start
             )
-
-
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.weight(1.2f)
             ) {
-
                 MatchStatusHeader(match)
-
-
                 ScoreDisplay(match)
-
-
-                MatchDetails(match)
+                MatchStatusChip(match)
             }
-
-
             TeamInfoCompact(
                 team = match.team2,
                 modifier = Modifier.weight(1f),
@@ -403,21 +400,36 @@ private fun MatchCard(match: Match) {
 }
 
 @Composable
-private fun TeamInfoCompact(team: Team, modifier: Modifier, alignment: Alignment.Horizontal) {
+private fun TeamInfoCompact(
+    team: Team,
+    modifier: Modifier,
+    alignment: Alignment.Horizontal
+) {
+    val isValidUrl = remember(team.teamIconUrl) {
+        team.teamIconUrl.startsWith("http")
+    }
+
     Column(
         modifier = modifier,
         horizontalAlignment = alignment,
         verticalArrangement = Arrangement.Center
     ) {
-        AsyncImage(
-            model = team.teamIconUrl,
-            contentDescription = null,
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentScale = ContentScale.Fit
-        )
+        if (isValidUrl) {
+
+            CoiledImage(
+                url = team.teamIconUrl,
+                contentDescription = "${team.teamName} logo",
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+        } else {
+            PlaceholderLogo(
+                team = team,
+                modifier = Modifier.size(56.dp)
+            )
+        }
 
         Text(
             text = team.teamName,
@@ -432,7 +444,6 @@ private fun TeamInfoCompact(team: Team, modifier: Modifier, alignment: Alignment
         )
     }
 }
-
 @Composable
 private fun MatchStatusHeader(match: Match) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -450,7 +461,25 @@ private fun MatchStatusHeader(match: Match) {
         )
     }
 }
-
+@Composable
+private fun PlaceholderLogo(
+    team: Team,
+    modifier: Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = team.teamName.take(3).uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 @Composable
 private fun ScoreDisplay(match: Match) {
     Row(
@@ -487,7 +516,7 @@ private fun ScoreDisplay(match: Match) {
 }
 
 @Composable
-private fun MatchDetails(match: Match) {
+private fun MatchStatusChip(match: Match) {
     Box(
         modifier = Modifier
             .clip(MaterialTheme.shapes.small)

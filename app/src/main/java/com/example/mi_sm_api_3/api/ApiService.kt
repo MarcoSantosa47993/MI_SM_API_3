@@ -43,4 +43,10 @@ interface ApiService {
         @Path("leagueShortcut") league: String,
         @Path("season") season: String
     ): List<Team>
+
+
+    @GET("getmatchdata/{matchID}")
+    suspend fun getMatch(
+        @Path("matchID") matchId: String
+    ): Match
 }
